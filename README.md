@@ -20,8 +20,8 @@ An MCP (Model Context Protocol) server that provides Modbus client functionality
 
 ```bash
 # Install from source
-git clone <repository-url>
-cd modbus-mcp-server
+git clone https://github.com/alejoseb/ModbusMCP.git
+cd ModbusMCP
 pip install -e .
 
 # For development
