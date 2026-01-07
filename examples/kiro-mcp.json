@@ -1,0 +1,16 @@
+{
+  "mcpServers": {
+    "modbus": {
+      "command": "modbus-mcp-server",
+      "args": ["--transport", "stdio"],
+      "env": {
+        "MODBUS_MCP_LOG_LEVEL": "INFO"
+      },
+      "disabled": false,
+      "autoApprove": [
+        "list_serial_ports",
+        "list_clients"
+      ]
+    }
+  }
+}

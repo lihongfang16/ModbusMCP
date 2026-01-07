@@ -1,0 +1,34 @@
+{
+  "server": {
+    "host": "localhost",
+    "port": 8000,
+    "transport": "stdio",
+    "log_level": "INFO",
+    "log_file": null,
+    "log_format": "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  },
+  "modbus": {
+    "default_timeout": 3.0,
+    "max_clients": 50,
+    "cleanup_interval": 300,
+    "default_tcp_port": 502,
+    "default_baudrate": 9600,
+    "default_bytesize": 8,
+    "default_parity": "N",
+    "default_stopbits": 1
+  },
+  "limits": {
+    "max_coil_count": 2000,
+    "max_discrete_input_count": 2000,
+    "max_holding_register_count": 125,
+    "max_input_register_count": 125,
+    "max_write_coil_count": 1968,
+    "max_write_register_count": 123
+  },
+  "advanced": {
+    "enable_metrics": false,
+    "metrics_port": 9090,
+    "enable_health_check": false,
+    "health_check_port": 8080
+  }
+}

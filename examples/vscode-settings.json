@@ -1,0 +1,11 @@
+{
+  "mcp.servers": {
+    "modbus": {
+      "command": "modbus-mcp-server",
+      "args": ["--log-level", "INFO"],
+      "env": {
+        "MODBUS_MCP_LOG_FILE": "/tmp/modbus-mcp.log"
+      }
+    }
+  }
+}
