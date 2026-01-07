@@ -88,7 +88,7 @@ class ConnectionManager:
             Unique client identifier string
             
         Raises:
-            ValueError: If parameters are invalid or port is already in use
+            ValueError: If parameters are invalid, port is already in use, or connection fails
         """
         with self._lock:
             # Validate parameters
@@ -111,6 +111,10 @@ class ConnectionManager:
                 # Create the client wrapper
                 client_wrapper = ModbusClientWrapper.create_rtu_client(rtu_params, slave_id)
                 
+                # Attempt to connect
+                if not client_wrapper.connect():
+                    raise ValueError(f"Failed to establish connection to RTU device on port {port}")
+                
                 # Store client and metadata
                 self.clients[client_id] = client_wrapper
                 self.used_ports.add(port)
@@ -130,11 +134,11 @@ class ConnectionManager:
                     slave_id=slave_id,
                     created_at=datetime.now(),
                     last_used=datetime.now(),
-                    connected=False
+                    connected=True  # Set to True since we just connected
                 )
                 self.client_info[client_id] = client_info
                 
-                logger.info(f"Created RTU client {client_id} for port {port}, slave {slave_id}")
+                logger.info(f"Created and connected RTU client {client_id} for port {port}, slave {slave_id}")
                 return client_id
                 
             except ConnectionException as e:
@@ -205,7 +209,7 @@ class ConnectionManager:
             Unique client identifier string
             
         Raises:
-            ValueError: If parameters are invalid
+            ValueError: If parameters are invalid or connection fails
         """
         with self._lock:
             # Validate parameters
@@ -224,6 +228,10 @@ class ConnectionManager:
                 # Create the client wrapper
                 client_wrapper = ModbusClientWrapper.create_tcp_client(tcp_params, slave_id)
                 
+                # Attempt to connect
+                if not client_wrapper.connect():
+                    raise ValueError(f"Failed to establish connection to {host}:{port}")
+                
                 # Store client and metadata
                 self.clients[client_id] = client_wrapper
                 
@@ -239,11 +247,11 @@ class ConnectionManager:
                     slave_id=slave_id,
                     created_at=datetime.now(),
                     last_used=datetime.now(),
-                    connected=False
+                    connected=True  # Set to True since we just connected
                 )
                 self.client_info[client_id] = client_info
                 
-                logger.info(f"Created TCP client {client_id} for {host}:{port}, slave {slave_id}")
+                logger.info(f"Created and connected TCP client {client_id} for {host}:{port}, slave {slave_id}")
                 return client_id
                 
             except ConnectionException as e:

@@ -9,7 +9,7 @@ description = "MCP server providing Modbus client functionality"
 readme = "README.md"
 requires-python = ">=3.8"
 authors = [
-    {name = "Developer", email = "developer@example.com"}
+    {name = "Alejandro Mera", email = "alejoseb@gmail.com"}
 ]
 classifiers = [
     "Development Status :: 3 - Alpha",

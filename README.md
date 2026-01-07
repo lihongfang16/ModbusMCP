@@ -16,6 +16,8 @@ An MCP (Model Context Protocol) server that provides Modbus client functionality
 
 ### Installation
 
+#### Method 1: Standard Installation (Recommended)
+
 ```bash
 # Install from source
 git clone <repository-url>
@@ -24,6 +26,42 @@ pip install -e .
 
 # For development
 pip install -e ".[dev]"
+```
+
+#### Method 2: If pip installation fails (Windows)
+
+If you encounter "No module named pip" or similar errors:
+
+```cmd
+# Try with python -m pip
+python -m pip install -e .
+
+# Or install dependencies manually
+python -m pip install fastmcp>=0.2.0 pymodbus>=3.6.0 pyserial>=3.5
+python -m pip install .
+```
+
+#### Method 3: Direct execution without installation
+
+If installation continues to fail, use the provided scripts:
+
+**Windows (Command Prompt):**
+```cmd
+run_server.bat --version
+```
+
+**Windows (PowerShell):**
+```powershell
+.\run_server.ps1 --version
+```
+
+**Manual execution:**
+```cmd
+# Install dependencies first
+python -m pip install fastmcp>=0.2.0 pymodbus>=3.6.0 pyserial>=3.5
+
+# Run directly
+python -m src.modbus_mcp_server.cli
 ```
 
 ### Basic Usage
@@ -286,6 +324,42 @@ Read input registers from both devices every 10 seconds and compare the values."
 
 ## Troubleshooting
 
+### Installation Issues
+
+#### "No module named pip" Error
+
+This is a common Windows issue. Try these solutions in order:
+
+1. **Use python -m pip instead:**
+   ```cmd
+   python -m pip install -e .
+   ```
+
+2. **Reinstall pip:**
+   ```cmd
+   # Download get-pip.py from https://bootstrap.pypa.io/get-pip.py
+   python get-pip.py
+   python -m pip install -e .
+   ```
+
+3. **Use virtual environment:**
+   ```cmd
+   python -m venv modbus_env
+   modbus_env\Scripts\activate
+   python -m pip install --upgrade pip
+   python -m pip install -e .
+   ```
+
+4. **Direct execution (no installation):**
+   ```cmd
+   # Use the provided batch file
+   run_server.bat --version
+   
+   # Or manually
+   python -m pip install fastmcp>=0.2.0 pymodbus>=3.6.0 pyserial>=3.5
+   python -m src.modbus_mcp_server.cli
+   ```
+
 ### Common Issues
 
 1. **Serial Port Access Denied**
@@ -377,6 +451,11 @@ flake8 src tests
 ## License
 
 MIT License - see LICENSE file for details.
+
+## Author
+
+**Alejandro Mera**  
+Email: alejoseb@gmail.com
 
 ## Support
 
