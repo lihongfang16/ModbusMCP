@@ -9,8 +9,6 @@ from pymodbus.exceptions import (
     ModbusException,
     ModbusIOException,
     ConnectionException,
-    InvalidMessageReceivedException,
-    MessageRegisterException,
     ParameterException,
     NotImplementedException
 )
@@ -189,18 +187,6 @@ class ModbusClientWrapper:
                 error_message=f"Communication error during {operation}: {str(e)}",
                 error_code="COMMUNICATION_ERROR"
             )
-        elif isinstance(e, InvalidMessageReceivedException):
-            return ModbusResult(
-                success=False,
-                error_message=f"Invalid response received during {operation}: {str(e)}",
-                error_code="INVALID_RESPONSE"
-            )
-        elif isinstance(e, MessageRegisterException):
-            return ModbusResult(
-                success=False,
-                error_message=f"Message registration error during {operation}: {str(e)}",
-                error_code="MESSAGE_ERROR"
-            )
         elif isinstance(e, ParameterException):
             return ModbusResult(
                 success=False,
@@ -256,7 +242,7 @@ class ModbusClientWrapper:
             )
         
         # Perform the read operation
-        response = self.client.read_coils(address, count, slave=self.slave_id)
+        response = self.client.read_coils(address, count=count, device_id=self.slave_id)
         
         if response.isError():
             return ModbusResult(
@@ -323,10 +309,10 @@ class ModbusClientWrapper:
         # Perform the write operation
         if len(values) == 1:
             # Single coil write
-            response = self.client.write_coil(address, values[0], slave=self.slave_id)
+            response = self.client.write_coil(address, values[0], device_id=self.slave_id)
         else:
             # Multiple coil write
-            response = self.client.write_coils(address, values, slave=self.slave_id)
+            response = self.client.write_coils(address, values, device_id=self.slave_id)
         
         if response.isError():
             return ModbusResult(
@@ -376,7 +362,7 @@ class ModbusClientWrapper:
                 error_code="CONNECTION_ERROR"
             )
         
-        response = self.client.read_discrete_inputs(address, count, slave=self.slave_id)
+        response = self.client.read_discrete_inputs(address, count=count, device_id=self.slave_id)
         
         if response.isError():
             return ModbusResult(
@@ -427,7 +413,7 @@ class ModbusClientWrapper:
                 error_code="CONNECTION_ERROR"
             )
         
-        response = self.client.read_holding_registers(address, count, slave=self.slave_id)
+        response = self.client.read_holding_registers(address, count=count, device_id=self.slave_id)
         
         if response.isError():
             return ModbusResult(
@@ -479,9 +465,9 @@ class ModbusClientWrapper:
             )
         
         if len(values) == 1:
-            response = self.client.write_register(address, values[0], slave=self.slave_id)
+            response = self.client.write_register(address, values[0], device_id=self.slave_id)
         else:
-            response = self.client.write_registers(address, values, slave=self.slave_id)
+            response = self.client.write_registers(address, values, device_id=self.slave_id)
         
         if response.isError():
             return ModbusResult(
@@ -531,7 +517,7 @@ class ModbusClientWrapper:
                 error_code="CONNECTION_ERROR"
             )
         
-        response = self.client.read_input_registers(address, count, slave=self.slave_id)
+        response = self.client.read_input_registers(address, count=count, device_id=self.slave_id)
         
         if response.isError():
             return ModbusResult(

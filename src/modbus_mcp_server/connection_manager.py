@@ -11,8 +11,6 @@ from pymodbus.exceptions import (
     ModbusException,
     ModbusIOException,
     ConnectionException,
-    InvalidMessageReceivedException,
-    MessageRegisterException,
     ParameterException,
     NotImplementedException
 )
