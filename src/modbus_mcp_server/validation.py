@@ -223,3 +223,37 @@ class ModbusValidator:
     def validate_input_register_read_params(cls, address: int, count: int) -> None:
         """Validate parameters for input register read operation."""
         cls.validate_address_range(address, count, cls.MAX_INPUT_REGISTERS, "Input register read")
+
+    @classmethod
+    def validate_discrete_input_write_params(cls, address: int, values: List[bool]) -> None:
+        """Validate parameters for discrete input write operation (server-side only).
+
+        Server owners need to populate discrete input values that clients will read.
+
+        Args:
+            address: Starting address to write to
+            values: List of boolean values to write
+
+        Raises:
+            ValueError: If parameters are invalid
+        """
+        cls.validate_coil_values(values)
+        count = len(values)
+        cls.validate_address_range(address, count, cls.MAX_COILS_WRITE, "Discrete input write")
+
+    @classmethod
+    def validate_input_register_write_params(cls, address: int, values: List[int]) -> None:
+        """Validate parameters for input register write operation (server-side only).
+
+        Server owners need to populate input register values that clients will read.
+
+        Args:
+            address: Starting address to write to
+            values: List of integer values (0-65535) to write
+
+        Raises:
+            ValueError: If parameters are invalid
+        """
+        cls.validate_register_values(values)
+        count = len(values)
+        cls.validate_address_range(address, count, cls.MAX_HOLDING_REGISTERS_WRITE, "Input register write")

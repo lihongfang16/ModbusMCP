@@ -68,6 +68,64 @@ class RTUParams:
 
 
 @dataclass
+class ServerInfo:
+    """Information about a running Modbus server."""
+    server_id: str
+    server_type: str  # "RTU" or "TCP"
+    connection_params: Dict[str, Any]
+    slave_id: int
+    created_at: datetime
+    running: bool
+
+
+@dataclass
+class ServerTCPParams:
+    """Parameters for a Modbus TCP server."""
+    host: str = "0.0.0.0"
+    port: int = 502
+
+    def __post_init__(self) -> None:
+        """Validate TCP server parameters after initialization."""
+        if not isinstance(self.host, str) or not self.host.strip():
+            raise ValueError("Host must be a non-empty string")
+
+        if not (1 <= self.port <= 65535):
+            raise ValueError("Port must be between 1 and 65535")
+
+
+@dataclass
+class ServerRTUParams:
+    """Parameters for a Modbus RTU server."""
+    port: str
+    baudrate: int
+    bytesize: int = 8
+    parity: str = 'N'
+    stopbits: int = 1
+    timeout: float = 3.0
+
+    def __post_init__(self) -> None:
+        """Validate RTU server parameters after initialization."""
+        if not isinstance(self.port, str) or not self.port.strip():
+            raise ValueError("Port must be a non-empty string")
+
+        valid_baudrates = [9600, 19200, 38400, 57600, 115200]
+        if self.baudrate not in valid_baudrates:
+            raise ValueError(f"Baudrate must be one of {valid_baudrates}")
+
+        if self.bytesize not in [5, 6, 7, 8]:
+            raise ValueError("Bytesize must be 5, 6, 7, or 8")
+
+        if self.parity not in ['N', 'E', 'O', 'M', 'S']:
+            raise ValueError("Parity must be 'N', 'E', 'O', 'M', or 'S'")
+
+        if self.stopbits not in [1, 1.5, 2]:
+            raise ValueError("Stopbits must be 1, 1.5, or 2")
+
+        if self.timeout <= 0:
+            raise ValueError("Timeout must be positive")
+
+
+@dataclass
 class TCPParams:
     """Parameters for TCP connection."""
     host: str
