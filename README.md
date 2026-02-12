@@ -1,13 +1,15 @@
 # Modbus MCP Server
 
-An MCP (Model Context Protocol) server that provides Modbus client functionality, enabling LLM applications to interact with Modbus RTU and TCP devices through a standardized interface. This server acts as a bridge between AI assistants and industrial automation systems, PLCs, sensors, and other Modbus-enabled devices.
+An MCP (Model Context Protocol) server that provides Modbus client and server (slave) functionality, enabling LLM applications to interact with Modbus RTU and TCP devices through a standardized interface. This server acts as a bridge between AI assistants and industrial automation systems, PLCs, sensors, and other Modbus-enabled devices.
 
 ## Features
 
 - **Modbus RTU and TCP client support** - Connect to serial and network Modbus devices
+- **Modbus RTU and TCP server (slave) support** - Run simulated Modbus devices that respond to client requests
 - **Serial port discovery and management** - Automatically detect available serial ports
 - **Comprehensive read/write operations** - Support for coils, discrete inputs, holding registers, and input registers
-- **Multiple concurrent connections** - Manage multiple Modbus devices simultaneously
+- **Server-side datastore management** - Populate and read all 4 register types on server instances
+- **Multiple concurrent connections** - Manage multiple Modbus clients and servers simultaneously
 - **Robust error handling** - Comprehensive validation and user-friendly error messages
 - **Property-based testing** - Extensive test coverage ensuring reliability
 - **FastMCP integration** - Built on the latest MCP protocol standards
@@ -243,22 +245,36 @@ Kiro: [Sets up periodic reading with alerting logic]
 
 The server exposes the following tools through the MCP protocol:
 
-### Connection Management
+### Client Connection Management
 - `list_serial_ports` - Discover available serial ports
 - `create_rtu_client` - Create Modbus RTU client connection
 - `create_tcp_client` - Create Modbus TCP client connection
 - `close_client` - Close and cleanup client connection
 - `list_clients` - List active client connections
 
-### Read Operations
+### Client Read Operations
 - `read_coils` - Read coil values (digital outputs)
 - `read_discrete_inputs` - Read discrete input values (digital inputs)
 - `read_holding_registers` - Read holding register values (analog/config data)
 - `read_input_registers` - Read input register values (sensor data)
 
-### Write Operations
+### Client Write Operations
 - `write_coils` - Write coil values (control digital outputs)
 - `write_holding_registers` - Write holding register values (set parameters)
+
+### Server (Slave) Lifecycle
+- `create_tcp_server` - Start a Modbus TCP slave on a given host and port
+- `create_rtu_server` - Start a Modbus RTU slave on a serial port
+- `stop_server` - Stop a running server by ID
+- `list_servers` - List all active server instances
+
+### Server Datastore Operations
+- `server_read_coils` / `server_write_coils` - Read/write coil values in a server's datastore
+- `server_read_discrete_inputs` / `server_write_discrete_inputs` - Read/set discrete input values
+- `server_read_holding_registers` / `server_write_holding_registers` - Read/write holding register values
+- `server_read_input_registers` / `server_write_input_registers` - Read/set input register values
+
+> **Note:** Server-side write operations for discrete inputs and input registers allow the server owner to populate data that is normally read-only from the client perspective.
 
 ## Configuration
 
@@ -341,8 +357,27 @@ then set coil 5 to ON to start the conveyor motor."
 
 ```python
 # Monitor multiple devices:
-"List all available serial ports, then connect to devices on COM1 and COM3. 
+"List all available serial ports, then connect to devices on COM1 and COM3.
 Read input registers from both devices every 10 seconds and compare the values."
+```
+
+### Example 4: Simulating a Modbus Device
+
+```python
+# Start a Modbus TCP server to simulate a temperature sensor:
+"Create a TCP server on port 5020 with slave ID 1.
+Set holding registers 0-3 to values [2500, 2650, 2700, 2550]
+representing temperatures in tenths of degrees.
+Then connect a client to verify the values can be read."
+```
+
+### Example 5: Device Testing and Bridging
+
+```python
+# Use server + client together for testing:
+"Start a TCP server on 127.0.0.1:5020 with slave ID 1,
+populate its input registers 0-9 with test sensor data,
+then create a TCP client to connect to it and verify all values are correct."
 ```
 
 ## Troubleshooting
@@ -428,9 +463,9 @@ modbus-mcp-server --config test-config.json --show-config
 
 ### Testing Status
 
-✅ **All MCP tools tested and verified** (2026-02-05)
+✅ **All MCP tools tested and verified** (2026-02-12)
 
-The following operations have been tested against a live Modbus TCP server (127.0.0.1:5020):
+#### Client Tools
 
 | Tool | Status | Notes |
 |------|--------|-------|
@@ -445,6 +480,28 @@ The following operations have been tested against a live Modbus TCP server (127.
 | `read_input_registers` | ✅ Pass | Successfully reads input register values |
 | `list_clients` | ✅ Pass | Lists active connections with details |
 | `close_client` | ✅ Pass | Properly closes and cleans up connections |
+
+#### Server (Slave) Tools
+
+| Tool | Status | Notes |
+|------|--------|-------|
+| `create_tcp_server` | ✅ Pass | Starts TCP slave, works from within MCP event loop |
+| `create_rtu_server` | ✅ Pass | Starts RTU slave on serial port |
+| `stop_server` | ✅ Pass | Stops server and releases TCP/serial port |
+| `list_servers` | ✅ Pass | Lists active servers with connection details |
+| `server_read_coils` | ✅ Pass | Reads coil values from server datastore |
+| `server_write_coils` | ✅ Pass | Writes coils, verified via client read-back |
+| `server_read_discrete_inputs` | ✅ Pass | Reads discrete inputs from datastore |
+| `server_write_discrete_inputs` | ✅ Pass | Populates discrete inputs, verified via client |
+| `server_read_holding_registers` | ✅ Pass | Reads holding registers from datastore |
+| `server_write_holding_registers` | ✅ Pass | Writes registers, verified via client read-back |
+| `server_read_input_registers` | ✅ Pass | Reads input registers from datastore |
+| `server_write_input_registers` | ✅ Pass | Populates input registers, verified via client |
+
+#### End-to-End Tests
+- ✅ Server create → populate datastore → client connect → client read → values match
+- ✅ Server stop → port freed → new server on same port succeeds
+- ✅ Server creation from inside running async event loop (MCP framework scenario)
 
 ### Running Tests
 
@@ -492,6 +549,15 @@ flake8 src tests
 - **Hardware**: Serial ports (for RTU) or network access (for TCP)
 
 ## Version History
+
+### v0.3.0 (2026-02-12)
+- **Modbus Server (Slave) Support** - 12 new MCP tools for running Modbus TCP and RTU servers
+  - Create, stop, and list server instances
+  - Read/write all 4 register types (coils, discrete inputs, holding registers, input registers) on server datastores
+  - Server-side populate for read-only register types (discrete inputs, input registers)
+- **Async-safe architecture** - Each server runs in its own thread with a dedicated event loop, compatible with the MCP framework's async context
+- **Port conflict tracking** - Prevents binding the same TCP or serial port twice
+- **End-to-end verified** - Server + client communication tested for all register types
 
 ### v0.2.0 (2026-02-05)
 - **Updated to pymodbus 3.11.4** - Full compatibility with latest pymodbus release

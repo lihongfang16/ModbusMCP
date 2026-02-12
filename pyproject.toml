@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "modbus-mcp-server"
-version = "0.1.0"
-description = "MCP server providing Modbus client functionality"
+version = "0.3.0"
+description = "MCP server providing Modbus client and server (slave) functionality"
 readme = "README.md"
 requires-python = ">=3.8"
 authors = [
