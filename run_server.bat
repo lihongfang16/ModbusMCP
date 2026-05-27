@@ -19,7 +19,7 @@ echo Checking dependencies...
 python -c "import fastmcp, pymodbus, serial" >nul 2>&1
 if errorlevel 1 (
     echo Installing required dependencies...
-    python -m pip install fastmcp>=0.2.0 pymodbus==3.11.4 pyserial==3.5
+    python -m pip install fastmcp>=0.4.1 pymodbus==3.11.4 pyserial==3.5
     if errorlevel 1 (
         echo Error: Failed to install dependencies
         echo Please check your internet connection and pip installation

@@ -23,7 +23,7 @@ try {
 } catch {
     Write-Host "Installing required dependencies..." -ForegroundColor Yellow
     try {
-        python -m pip install fastmcp>=0.2.0 pymodbus==3.11.4 pyserial==3.5
+        python -m pip install fastmcp>=0.4.1 pymodbus==3.11.4 pyserial==3.5
         Write-Host "Dependencies installed successfully" -ForegroundColor Green
     } catch {
         Write-Host "Error: Failed to install dependencies" -ForegroundColor Red

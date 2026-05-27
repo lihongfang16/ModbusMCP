@@ -33,9 +33,7 @@ Examples:
   modbus-mcp-server --show-config
 
 Environment Variables:
-  MODBUS_MCP_HOST              Server host (default: localhost)
-  MODBUS_MCP_PORT              Server port (default: 8000)
-  MODBUS_MCP_TRANSPORT         Transport type (stdio, sse, websocket)
+  MODBUS_MCP_TRANSPORT         Transport type (stdio)
   MODBUS_MCP_LOG_LEVEL         Log level (DEBUG, INFO, WARNING, ERROR)
   MODBUS_MCP_LOG_FILE          Log file path
   MODBUS_MCP_DEFAULT_TIMEOUT   Default operation timeout in seconds
@@ -69,16 +67,16 @@ For a complete list of environment variables, see the documentation.
     server_group.add_argument(
         "--host",
         type=str,
-        help="Server host address (overrides config file)"
+        help="Server host address (for reference only, stdio transport ignores this)"
     )
     server_group.add_argument(
         "--port",
         type=int,
-        help="Server port number (overrides config file)"
+        help="Server port number (for reference only, stdio transport ignores this)"
     )
     server_group.add_argument(
         "--transport",
-        choices=["stdio", "sse", "websocket"],
+        choices=["stdio", "sse"],
         help="Transport type (overrides config file)"
     )
     
@@ -123,7 +121,7 @@ For a complete list of environment variables, see the documentation.
     parser.add_argument(
         "--version",
         action="version",
-        version="%(prog)s 0.1.0"
+        version="%(prog)s 0.3.0"
     )
     
     return parser
@@ -137,6 +135,7 @@ def apply_cli_overrides(config, args: argparse.Namespace) -> None:
         args: Parsed command-line arguments
     """
     # Server options
+    # Note: host/port are accepted for backward compatibility but ignored for stdio transport
     if args.host is not None:
         config.host = args.host
     if args.port is not None:

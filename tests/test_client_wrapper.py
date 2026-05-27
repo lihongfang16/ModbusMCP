@@ -9,8 +9,6 @@ from pymodbus.exceptions import (
     ModbusException,
     ModbusIOException,
     ConnectionException,
-    InvalidMessageReceivedException,
-    MessageRegisterException,
     ParameterException,
     NotImplementedException
 )
@@ -331,8 +329,6 @@ class TestErrorScenarios:
     @pytest.mark.parametrize("exception_class,expected_error_code", [
         (ConnectionException, "CONNECTION_ERROR"),
         (ModbusIOException, "COMMUNICATION_ERROR"),
-        (InvalidMessageReceivedException, "INVALID_RESPONSE"),
-        (MessageRegisterException, "MESSAGE_ERROR"),
         (ParameterException, "PARAMETER_ERROR"),
         (NotImplementedException, "NOT_SUPPORTED"),
         (ModbusException, "MODBUS_PROTOCOL_ERROR"),
@@ -528,7 +524,6 @@ class TestErrorScenarios:
             # Test different communication failures
             test_cases = [
                 (ModbusIOException("Device not responding"), "COMMUNICATION_ERROR"),
-                (InvalidMessageReceivedException("Corrupted response"), "INVALID_RESPONSE"),
                 (OSError("Serial port error"), "SYSTEM_ERROR"),
             ]
             

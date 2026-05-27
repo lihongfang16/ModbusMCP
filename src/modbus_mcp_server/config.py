@@ -131,6 +131,8 @@ class ConfigManager:
         prefix = "MODBUS_MCP_"
         
         # Define environment variable mappings
+        # Note: Only stdio transport is supported (FastMCP 0.4.1 limitation)
+        # Host/port are kept for backward compatibility but only affect stdio server metadata
         env_mappings = {
             f"{prefix}HOST": "host",
             f"{prefix}PORT": ("port", int),
@@ -220,9 +222,9 @@ class ConfigManager:
             raise ValueError(f"Invalid log level: {config.log_level}")
         
         # Validate transport
-        valid_transports = ["stdio", "sse", "websocket"]
+        valid_transports = ["stdio", "sse"]
         if config.transport not in valid_transports:
-            raise ValueError(f"Invalid transport: {config.transport}")
+            raise ValueError(f"Invalid transport: {config.transport}. Choose from: {', '.join(valid_transports)}")
         
         # Validate timeouts and limits
         if config.default_timeout <= 0:

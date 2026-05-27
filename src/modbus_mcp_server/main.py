@@ -450,45 +450,6 @@ def _register_server_tools(app: FastMCP, handlers: ModbusServerCommandHandlers) 
         return handlers.handle_server_write_input_registers(server_id, address, values)
 
 
-async def main_async(config: ServerConfig) -> None:
-    """Run the MCP server."""
-    app = create_app(config)
-    
-    # Set up graceful shutdown
-    def signal_handler(signum, frame):
-        logging.info("Received shutdown signal, cleaning up...")
-        if hasattr(app, 'connection_manager'):
-            app.connection_manager.cleanup_all()
-        if hasattr(app, 'server_manager'):
-            app.server_manager.cleanup_all()
-        sys.exit(0)
-
-    signal.signal(signal.SIGINT, signal_handler)
-    signal.signal(signal.SIGTERM, signal_handler)
-
-    try:
-        logging.info(f"Modbus MCP Server starting with transport: {config.transport}")
-        if config.transport == "stdio":
-            # FastMCP.run is synchronous, not async
-            app.run(transport="stdio")
-        else:
-            logging.info(f"Server listening on {config.host}:{config.port}")
-            app.run(transport=config.transport, host=config.host, port=config.port)
-    except Exception as e:
-        logging.error(f"Server error: {e}")
-        if hasattr(app, 'connection_manager'):
-            app.connection_manager.cleanup_all()
-        if hasattr(app, 'server_manager'):
-            app.server_manager.cleanup_all()
-        raise
-    finally:
-        # Cleanup on exit
-        if hasattr(app, 'connection_manager'):
-            app.connection_manager.cleanup_all()
-        if hasattr(app, 'server_manager'):
-            app.server_manager.cleanup_all()
-
-
 def main(config_file: Optional[str] = None, config: Optional[ServerConfig] = None) -> None:
     """Main entry point."""
     try:
@@ -509,6 +470,8 @@ def main(config_file: Optional[str] = None, config: Optional[ServerConfig] = Non
             logging.info("Received shutdown signal, cleaning up...")
             if hasattr(app, 'connection_manager'):
                 app.connection_manager.cleanup_all()
+            if hasattr(app, 'server_manager'):
+                app.server_manager.cleanup_all()
             sys.exit(0)
         
         signal.signal(signal.SIGINT, signal_handler)
@@ -519,17 +482,21 @@ def main(config_file: Optional[str] = None, config: Optional[ServerConfig] = Non
             if server_config.transport == "stdio":
                 app.run(transport="stdio")
             else:
-                logging.info(f"Server listening on {server_config.host}:{server_config.port}")
-                app.run(transport=server_config.transport, host=server_config.host, port=server_config.port)
+                # SSE transport
+                app.run(transport="sse")
         except Exception as e:
             logging.error(f"Server error: {e}")
             if hasattr(app, 'connection_manager'):
                 app.connection_manager.cleanup_all()
+            if hasattr(app, 'server_manager'):
+                app.server_manager.cleanup_all()
             raise
         finally:
             # Cleanup on exit
             if hasattr(app, 'connection_manager'):
                 app.connection_manager.cleanup_all()
+            if hasattr(app, 'server_manager'):
+                app.server_manager.cleanup_all()
                 
     except KeyboardInterrupt:
         logging.info("Server stopped by user")

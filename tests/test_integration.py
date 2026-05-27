@@ -11,9 +11,9 @@ from typing import Any, Dict, List
 from unittest.mock import Mock, patch
 
 import pytest
-from pymodbus.server.async_io import StartTcpServer
-from pymodbus.datastore import ModbusSequentialDataBlock, ModbusSlaveContext, ModbusServerContext
-from pymodbus.device import ModbusDeviceIdentification
+from pymodbus.server import StartTcpServer
+from pymodbus.datastore import ModbusSequentialDataBlock, ModbusServerContext
+from pymodbus import ModbusDeviceIdentification
 
 from modbus_mcp_server.config import ServerConfig, ConfigManager
 from modbus_mcp_server.main import create_app
@@ -32,13 +32,15 @@ class MockModbusServer:
     async def start_async(self):
         """Start the mock Modbus server asynchronously."""
         # Create data store with some test data
-        store = ModbusSlaveContext(
-            di=ModbusSequentialDataBlock(0, [False] * 100),  # Discrete inputs
-            co=ModbusSequentialDataBlock(0, [False] * 100),  # Coils
-            hr=ModbusSequentialDataBlock(0, [0] * 100),      # Holding registers
-            ir=ModbusSequentialDataBlock(0, [0] * 100),      # Input registers
-        )
-        context = ModbusServerContext(slaves=store, single=True)
+        store = {
+            1: {
+                "di": ModbusSequentialDataBlock(0, [False] * 100),  # Discrete inputs
+                "co": ModbusSequentialDataBlock(0, [False] * 100),  # Coils
+                "hr": ModbusSequentialDataBlock(0, [0] * 100),      # Holding registers
+                "ir": ModbusSequentialDataBlock(0, [0] * 100),      # Input registers
+            }
+        }
+        context = ModbusServerContext(devices=store, single=True)
         
         # Set up device identification
         identity = ModbusDeviceIdentification()
