@@ -32,6 +32,28 @@ This server is fully compatible with **pymodbus 3.11.4**, the latest stable rele
 
 For more details on pymodbus changes, see [PYMODBUS_3.11.4_UPGRADE.md](PYMODBUS_3.11.4_UPGRADE.md).
 
+## FastMCP 0.4.1 Upgrade
+
+This server has been upgraded from FastMCP 0.2.0 to **FastMCP 0.4.1**. Key changes:
+
+### API Changes
+- **`app.run()` signature**: Removed `host`/`port` kwargs — transport is now the primary argument
+- **SSE transport support**: `app.run(transport="sse")` starts an SSE server on `http://0.0.0.0:8000`
+- **Stdio transport**: `app.run(transport="stdio")` for process-based communication (default)
+
+### What This Means for Users
+- ✅ **SSE support** — Remote MCP connections via HTTP (used by OpenCode, browser-based clients)
+- ✅ **Stdio auto-spawn** — oh-my-openagent SkillMcpManager auto-starts the server as a child process
+- ✅ **Backward compatible** — `--host`/`--port` CLI flags and `MODBUS_MCP_HOST`/`PORT` env vars preserved
+- ⚠️ **FastMCP 0.4.1 SSE known issue** — Intermittent `ClosedResourceError` on SSE transport (Issue #69). Stdio is recommended for production.
+
+### Transport Comparison
+
+| Transport | Use Case | Auto-start? | Stability |
+|-----------|----------|-------------|-----------|
+| `stdio` | IDE plugins, OMO skills | ✅ Yes | ✅ Stable |
+| `sse` | Remote clients, OpenCode | ❌ Manual | ⚠️ Known issues |
+
 ## Quick Start
 
 ### Installation
@@ -62,7 +84,7 @@ If you encounter "No module named pip" or similar errors:
 python -m pip install -e .
 
 # Or install dependencies manually
-python -m pip install fastmcp>=0.2.0 pymodbus>=3.6.0 pyserial>=3.5
+python -m pip install fastmcp>=0.4.1 pymodbus>=3.6.0 pyserial>=3.5
 python -m pip install .
 ```
 
@@ -83,7 +105,7 @@ run_server.bat --version
 **Manual execution:**
 ```cmd
 # Install dependencies first
-python -m pip install fastmcp>=0.2.0 pymodbus==3.11.4 pyserial==3.5
+python -m pip install fastmcp>=0.4.1 pymodbus==3.11.4 pyserial==3.5
 
 # Run directly
 python -m src.modbus_mcp_server.cli
@@ -239,6 +261,76 @@ Kiro: [Discovers COM1, creates RTU client, sets up monitoring]
 
 You: "Read the temperature values every 30 seconds and alert me if any exceed 75°C"
 Kiro: [Sets up periodic reading with alerting logic]
+```
+
+## OpenCode + oh-my-openagent Skills with MCP
+
+This server includes a ready-to-use **skill** for [oh-my-openagent](https://github.com/code-yeongyu/oh-my-openagent) that bundles the MCP server configuration directly. Loading the skill auto-starts the server — no manual setup required.
+
+### Skill Structure
+
+```
+skills/modbus-slave/
+├── SKILL.md    # Skill definition + YAML frontmatter with embedded MCP config
+└── mcp.json    # Standalone MCP configuration (dual discovery)
+```
+
+### How It Works
+
+oh-my-openagent's `SkillMcpManager` detects the `mcp` field in the skill's YAML frontmatter (or `mcp.json`) and auto-spawns `modbus-mcp-server --transport stdio` as a child process. The server communicates via stdin/stdout — zero configuration needed.
+
+```yaml
+# From SKILL.md frontmatter
+mcp:
+  modbus-slave:
+    command: "modbus-mcp-server"
+    args: ["--transport", "stdio", "--log-level", "INFO"]
+```
+
+### Installing the Skill
+
+**Method 1: Copy to project skills directory**
+
+```bash
+cp -r skills/modbus-slave .opencode/skills/
+```
+
+**Method 2: Copy to user skills directory**
+
+```bash
+cp -r skills/modbus-slave ~/.config/opencode/skills/
+```
+
+**Method 3: Symlink (development)**
+
+```bash
+ln -s $(pwd)/skills/modbus-slave ~/.config/opencode/skills/modbus-slave
+```
+
+### Skill Capabilities (12 Tools)
+
+| Category | Tools |
+|----------|-------|
+| **Lifecycle** | `create_rtu_server`, `create_tcp_server`, `stop_server`, `list_servers` |
+| **Coils & DI** | `server_read_coils`, `server_write_coils`, `server_read_discrete_inputs`, `server_write_discrete_inputs` |
+| **Registers** | `server_read_holding_registers`, `server_write_holding_registers`, `server_read_input_registers`, `server_write_input_registers` |
+
+### Usage Example
+
+Once the skill is loaded, just ask naturally:
+
+```
+"Start a Modbus RTU slave on COM1 at 9600 baud, slave ID 1,
+ then set holding registers 0-3 to [100, 200, 300, 400]
+ and coils 0-2 to [ON, OFF, ON]"
+```
+
+The AI will call `create_rtu_server` → `server_write_holding_registers` → `server_write_coils` in sequence, with all MCP communication handled transparently.
+
+### Prerequisite
+
+```bash
+pip install modbus-mcp-server
 ```
 
 ## Available MCP Tools
@@ -414,7 +506,7 @@ This is a common Windows issue. Try these solutions in order:
    run_server.bat --version
    
    # Or manually
-   python -m pip install fastmcp>=0.2.0 pymodbus==3.11.4 pyserial==3.5
+   python -m pip install fastmcp>=0.4.1 pymodbus==3.11.4 pyserial==3.5
    python -m src.modbus_mcp_server.cli
    ```
 
@@ -542,7 +634,7 @@ flake8 src tests
 
 - **Python**: 3.8 or higher
 - **Dependencies**:
-  - fastMCP >= 0.2.0
+  - fastMCP >= 0.4.1
   - pymodbus == 3.11.4
   - pyserial == 3.5
 - **Operating System**: Windows, macOS, Linux
