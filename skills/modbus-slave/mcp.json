@@ -2,7 +2,7 @@
   "mcpServers": {
     "modbus-slave": {
       "type": "sse",
-      "url": "http://172.16.1.8:8090/sse"
+      "url": "http://<your-server-ip>:8090/sse"
     }
   }
 }

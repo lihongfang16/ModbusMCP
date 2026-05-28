@@ -83,13 +83,13 @@ python -m pytest tests/ --ignore=tests/test_connection_manager.py
 
 ## DEPLOYMENT
 
-- **Remote Server:** `172.16.1.8:8090` (excelsior)
+- **Remote Server:** `<your-server-ip>:8090`
 - **Service:** `systemctl status modbus-mcp`
 - **Auto-start:** `enabled` via systemd
 
 ## NOTES
 
-- **Fork:** `https://github.com/lihongfang16/ModbusMCP` (PRIVATE — do not share)
+- **Fork:** 基于 alejoseb/ModbusMCP 的增强版本
 - **Upstream:** `https://github.com/alejoseb/ModbusMCP`
 - **Web UI:** Vanilla JS, no frameworks, terminal-style log panel
 - **Threading:** MCP stdio in daemon thread, FastAPI in main thread

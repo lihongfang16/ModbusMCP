@@ -33,7 +33,7 @@ You can now perform read/write operations using this client.
 
 ### Example 3: Creating TCP Connection
 
-**User:** "Connect to Modbus TCP device at 192.168.1.100 port 502 with slave ID 1"
+**User:** "Connect to Modbus TCP device at 192.0.2.100 port 502 with slave ID 1"
 
 **AI Response:** The AI will use `create_tcp_client` and respond:
 ```
@@ -142,16 +142,16 @@ The system will now maintain temperature at this new setpoint.
 
 ### Example 10: PLC Status Monitoring
 
-**User:** "Connect to our main PLC at 192.168.1.50 and give me a status report"
+**User:** "Connect to our main PLC at 192.0.2.50 and give me a status report"
 
 **AI Workflow:**
-1. Creates TCP connection to 192.168.1.50
+1. Creates TCP connection to 192.0.2.50
 2. Reads various registers and coils
 3. Interprets the data based on PLC configuration
 
 **AI Response:**
 ```
-PLC Status Report (192.168.1.50):
+PLC Status Report (192.0.2.50):
 
 System Status:
 - Main power: ON (Coil 1)
@@ -227,11 +227,11 @@ All zones should reach target temperatures within 30 minutes.
 
 ### Example 13: Connection Error
 
-**User:** "Connect to device at 192.168.1.200"
+**User:** "Connect to device at 192.0.2.200"
 
 **AI Response:**
 ```
-Failed to connect to Modbus TCP device at 192.168.1.200:502
+Failed to connect to Modbus TCP device at 192.0.2.200:502
 
 Error: Connection timeout after 3.0 seconds
 Possible causes:
@@ -289,7 +289,7 @@ Which option would you prefer?
 
 ### Example 16: Multi-Device Coordination
 
-**User:** "Monitor temperature from sensor on COM1 and control heater via TCP device at 192.168.1.100 to maintain 25°C"
+**User:** "Monitor temperature from sensor on COM1 and control heater via TCP device at 192.0.2.100 to maintain 25°C"
 
 **AI Workflow:**
 1. Creates RTU connection for temperature sensor
@@ -305,7 +305,7 @@ Temperature Sensor (COM1):
 - Reading from input register 30001
 - Current temperature: 23.2°C
 
-Heater Controller (192.168.1.100):
+Heater Controller (192.0.2.100):
 - Connected to TCP device, slave ID 1
 - Control via holding register 40001
 - Current setpoint: 20°C
@@ -328,8 +328,8 @@ Data logging setup complete:
 
 Connected Devices:
 1. RTU Client (COM3) - Temperature sensors
-2. TCP Client (192.168.1.100) - PLC status
-3. TCP Client (192.168.1.101) - Energy meter
+2. TCP Client (192.0.2.100) - PLC status
+3. TCP Client (192.0.2.101) - Energy meter
 
 Data Points:
 - Timestamp

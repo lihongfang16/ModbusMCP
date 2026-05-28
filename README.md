@@ -440,7 +440,7 @@ from all four zones."
 
 ```python
 # Control a PLC via Modbus TCP:
-"Connect to PLC at 192.168.1.100 port 502, slave ID 1. 
+"Connect to PLC at 192.0.2.100 port 502, slave ID 1. 
 Read coils 1-16 to check current output states, 
 then set coil 5 to ON to start the conveyor motor."
 ```
