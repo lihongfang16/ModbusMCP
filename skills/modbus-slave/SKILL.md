@@ -5,17 +5,16 @@ description: |
   slave devices, reads/writes coils, discrete inputs, holding registers, and input registers in the
   slave's local datastore. Use when the user wants to: (1) Start a Modbus slave on serial or TCP,
   (2) Populate slave data for testing, (3) Simulate Modbus devices with coil/register values,
-  (4) Read current slave datastore state. MCP server auto-starts via stdio — no manual setup required.
+  (4) Read current slave datastore state. MCP server deployed on remote server (172.16.1.8:8090).
   Tools: create_rtu_server, create_tcp_server, stop_server, list_servers, server_read_coils,
   server_write_coils, server_read_discrete_inputs, server_write_discrete_inputs,
   server_read_holding_registers, server_write_holding_registers, server_read_input_registers,
-  server_write_input_registers.
+  server_write_input_registers, server_set_alias, server_get_alias, server_list_aliases,
+  server_get_register_log.
 mcp:
   modbus-slave:
-    command: "modbus-mcp-server"
-    args: ["--transport", "stdio", "--log-level", "INFO"]
-    env:
-      MODBUS_MCP_DEFAULT_TIMEOUT: "5.0"
+    type: sse
+    url: "http://172.16.1.8:8090/sse"
 ---
 
 # Modbus Slave

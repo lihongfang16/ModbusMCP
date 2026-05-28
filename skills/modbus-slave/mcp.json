@@ -1,11 +1,8 @@
 {
   "mcpServers": {
     "modbus-slave": {
-      "command": "modbus-mcp-server",
-      "args": ["--transport", "stdio", "--log-level", "INFO"],
-      "env": {
-        "MODBUS_MCP_DEFAULT_TIMEOUT": "5.0"
-      }
+      "type": "sse",
+      "url": "http://172.16.1.8:8090/sse"
     }
   }
 }
