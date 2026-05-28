@@ -1,8 +1,12 @@
 """Command handlers for Modbus server (slave) operations."""
 
 import logging
-from typing import Any, Dict, List, Union
+from datetime import datetime, timezone
+from typing import Any, Dict, List, Optional, Union
 
+from .alias_manager import AliasManager
+from .models import LogEntry, RegisterType
+from .operation_log import OperationLog
 from .server_manager import ServerManager
 from .validation import ModbusValidator
 
@@ -12,14 +16,220 @@ logger = logging.getLogger(__name__)
 class ModbusServerCommandHandlers:
     """Handles MCP tool commands for Modbus server operations."""
 
-    def __init__(self, server_manager: ServerManager):
+    def __init__(
+        self,
+        server_manager: ServerManager,
+        alias_manager: Optional[AliasManager] = None,
+        operation_log: Optional[OperationLog] = None,
+    ):
         """Initialize command handlers with server manager.
 
         Args:
             server_manager: ServerManager instance for server management
+            alias_manager: AliasManager instance (defaults to server_manager.alias_manager)
+            operation_log: OperationLog instance (defaults to server_manager.operation_log)
         """
         self.server_manager = server_manager
+        self.alias_manager = alias_manager or server_manager.alias_manager
+        self.operation_log = operation_log or server_manager.operation_log
         logger.info("ModbusServerCommandHandlers initialized")
+
+    # ── Alias & Log handlers ────────────────────────────────────────
+
+    def handle_server_set_alias(
+        self,
+        server_id: str,
+        register_type: str,
+        address: int,
+        alias: str,
+    ) -> Dict[str, Any]:
+        """Set or update an alias for a register address.
+
+        Args:
+            server_id: Server instance identifier
+            register_type: Register type string (coils, discrete_inputs, holding_registers, input_registers)
+            address: Numeric register address
+            alias: Human-readable alias name
+
+        Returns:
+            Dictionary with success status
+        """
+        try:
+            if not isinstance(server_id, str) or not server_id.strip():
+                return self._validation_error("Server ID must be a non-empty string", "server_id", server_id)
+            if not isinstance(address, int):
+                return self._validation_error("Address must be an integer", "address", address)
+            if not isinstance(alias, str) or not alias.strip():
+                return self._validation_error("Alias must be a non-empty string", "alias", alias)
+
+            rt = self._parse_register_type(register_type)
+            if rt is None:
+                return self._validation_error(
+                    f"Invalid register_type '{register_type}'. Must be one of: coils, discrete_inputs, holding_registers, input_registers",
+                    "register_type", register_type,
+                )
+
+            self.alias_manager.set_alias(server_id, rt, address, alias)
+            return {
+                "success": True,
+                "message": f"Alias '{alias}' set for {register_type} address {address} on server {server_id}",
+            }
+
+        except Exception as e:
+            logger.error(f"Error setting alias: {e}")
+            return {"success": False, "error": {"code": "ALIAS_ERROR", "message": str(e)}}
+
+    def handle_server_get_alias(
+        self,
+        server_id: str,
+        register_type: str,
+        address: int,
+    ) -> Dict[str, Any]:
+        """Get the alias for a register address.
+
+        Args:
+            server_id: Server instance identifier
+            register_type: Register type string
+            address: Numeric register address
+
+        Returns:
+            Dictionary with success status and alias or None
+        """
+        try:
+            if not isinstance(server_id, str) or not server_id.strip():
+                return self._validation_error("Server ID must be a non-empty string", "server_id", server_id)
+            if not isinstance(address, int):
+                return self._validation_error("Address must be an integer", "address", address)
+
+            rt = self._parse_register_type(register_type)
+            if rt is None:
+                return self._validation_error(
+                    f"Invalid register_type '{register_type}'",
+                    "register_type", register_type,
+                )
+
+            alias = self.alias_manager.get_alias(server_id, rt, address)
+            return {
+                "success": True,
+                "alias": alias,
+                "message": f"Alias for {register_type} address {address}: {alias}" if alias else f"No alias set for {register_type} address {address}",
+            }
+
+        except Exception as e:
+            logger.error(f"Error getting alias: {e}")
+            return {"success": False, "error": {"code": "ALIAS_ERROR", "message": str(e)}}
+
+    def handle_server_list_aliases(
+        self,
+        server_id: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """List all aliases, optionally filtered by server.
+
+        Args:
+            server_id: Optional server ID to filter by
+
+        Returns:
+            Dictionary with success status and list of alias entries
+        """
+        try:
+            entries = self.alias_manager.list_aliases(server_id)
+            aliases_data = [
+                {
+                    "server_id": e.server_id,
+                    "register_type": e.register_type.value,
+                    "address": e.address,
+                    "alias": e.alias,
+                }
+                for e in entries
+            ]
+            return {
+                "success": True,
+                "aliases": aliases_data,
+                "message": f"Found {len(aliases_data)} aliases",
+            }
+
+        except Exception as e:
+            logger.error(f"Error listing aliases: {e}")
+            return {"success": False, "error": {"code": "ALIAS_ERROR", "message": str(e)}}
+
+    def handle_server_get_register_log(
+        self,
+        server_id: Optional[str] = None,
+        register_type: Optional[str] = None,
+        address: Optional[int] = None,
+        count: int = 100,
+    ) -> Dict[str, Any]:
+        """Get operation log entries with optional filters.
+
+        Args:
+            server_id: Optional server ID filter
+            register_type: Optional register type filter string
+            address: Optional address filter
+            count: Maximum number of entries to return (default 100)
+
+        Returns:
+            Dictionary with success status and list of log entries
+        """
+        try:
+            if not isinstance(count, int) or count <= 0:
+                return self._validation_error("Count must be a positive integer", "count", count)
+
+            rt: Optional[RegisterType] = None
+            if register_type is not None:
+                rt = self._parse_register_type(register_type)
+                if rt is None:
+                    return self._validation_error(
+                        f"Invalid register_type '{register_type}'",
+                        "register_type", register_type,
+                    )
+
+            entries = self.operation_log.get_history(
+                server_id=server_id,
+                register_type=rt,
+                address=address,
+                count=count,
+            )
+
+            logs_data = [
+                {
+                    "timestamp": e.timestamp,
+                    "server_id": e.server_id,
+                    "register_type": e.register_type.value if isinstance(e.register_type, RegisterType) else str(e.register_type),
+                    "address": e.address,
+                    "operation": e.operation,
+                    "source": e.source,
+                    "count": e.count,
+                    "alias": e.alias,
+                    "old_value": e.old_value,
+                    "new_value": e.new_value,
+                }
+                for e in entries
+            ]
+
+            return {
+                "success": True,
+                "logs": logs_data,
+                "message": f"Found {len(logs_data)} log entries",
+            }
+
+        except Exception as e:
+            logger.error(f"Error getting register log: {e}")
+            return {"success": False, "error": {"code": "LOG_ERROR", "message": str(e)}}
+
+    @staticmethod
+    def _parse_register_type(value: str) -> Optional[RegisterType]:
+        """Parse a register type string into a RegisterType enum.
+
+        Args:
+            value: Register type string
+
+        Returns:
+            RegisterType enum value or None if invalid
+        """
+        try:
+            return RegisterType(value)
+        except (ValueError, KeyError):
+            return None
 
     # ── Lifecycle handlers ─────────────────────────────────────────
 
@@ -233,7 +443,14 @@ class ModbusServerCommandHandlers:
             if not server:
                 return self._server_not_found_error(server_id)
 
+            # Read old values for logging
+            old_values = server.read_coils(address, len(values))
+
             server.write_coils(address, values)
+
+            # Log MCP write
+            self._log_mcp_write(server_id, RegisterType.coils, address, old_values, values)
+
             return {
                 "success": True,
                 "message": f"Successfully wrote {len(values)} coils to address {address}",
@@ -298,7 +515,14 @@ class ModbusServerCommandHandlers:
             if not server:
                 return self._server_not_found_error(server_id)
 
+            # Read old values for logging
+            old_values = server.read_discrete_inputs(address, len(values))
+
             server.write_discrete_inputs(address, values)
+
+            # Log MCP write
+            self._log_mcp_write(server_id, RegisterType.discrete_inputs, address, old_values, values)
+
             return {
                 "success": True,
                 "message": f"Successfully wrote {len(values)} discrete inputs to address {address}",
@@ -363,7 +587,14 @@ class ModbusServerCommandHandlers:
             if not server:
                 return self._server_not_found_error(server_id)
 
+            # Read old values for logging
+            old_values = server.read_holding_registers(address, len(values))
+
             server.write_holding_registers(address, values)
+
+            # Log MCP write
+            self._log_mcp_write(server_id, RegisterType.holding_registers, address, old_values, values)
+
             return {
                 "success": True,
                 "message": f"Successfully wrote {len(values)} holding registers to address {address}",
@@ -428,7 +659,14 @@ class ModbusServerCommandHandlers:
             if not server:
                 return self._server_not_found_error(server_id)
 
+            # Read old values for logging
+            old_values = server.read_input_registers(address, len(values))
+
             server.write_input_registers(address, values)
+
+            # Log MCP write
+            self._log_mcp_write(server_id, RegisterType.input_registers, address, old_values, values)
+
             return {
                 "success": True,
                 "message": f"Successfully wrote {len(values)} input registers to address {address}",
@@ -484,3 +722,38 @@ class ModbusServerCommandHandlers:
                 "message": f"Server with ID '{server_id}' not found",
             },
         }
+
+    def _log_mcp_write(
+        self,
+        server_id: str,
+        register_type: RegisterType,
+        address: int,
+        old_values: Any,
+        new_values: Any,
+    ) -> None:
+        """Log an MCP write operation.
+
+        Args:
+            server_id: Server identifier
+            register_type: Type of register being written
+            address: Starting address
+            old_values: Values before write
+            new_values: Values after write
+        """
+        try:
+            alias = self.alias_manager.get_alias(server_id, register_type, address)
+            entry = LogEntry(
+                timestamp=datetime.now(timezone.utc).isoformat(),
+                server_id=server_id,
+                register_type=register_type,
+                address=address,
+                operation="set",
+                source="mcp",
+                count=len(new_values) if isinstance(new_values, list) else 1,
+                alias=alias,
+                old_value=list(old_values) if isinstance(old_values, list) else [old_values],
+                new_value=list(new_values) if isinstance(new_values, list) else [new_values],
+            )
+            self.operation_log.add(entry)
+        except Exception as e:
+            logger.error(f"Error logging MCP write: {e}")

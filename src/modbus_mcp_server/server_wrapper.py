@@ -6,14 +6,16 @@ import threading
 from typing import List, Optional, Union
 
 from pymodbus.datastore import (
-    ModbusSequentialDataBlock,
     ModbusDeviceContext,
     ModbusServerContext,
 )
 from pymodbus.server import ModbusTcpServer, ModbusSerialServer
 from pymodbus.framer import FramerType
 
-from .models import ServerTCPParams, ServerRTUParams
+from .alias_manager import AliasManager
+from .auditing_datastore import AuditingDataBlock
+from .models import RegisterType, ServerTCPParams, ServerRTUParams
+from .operation_log import OperationLog
 from .validation import ModbusValidator
 
 logger = logging.getLogger(__name__)
@@ -274,7 +276,14 @@ class ModbusServerWrapper:
     # ── Factory methods ─────────────────────────────────────────────
 
     @classmethod
-    def create_tcp_server(cls, params: ServerTCPParams, slave_id: int) -> "ModbusServerWrapper":
+    def create_tcp_server(
+        cls,
+        params: ServerTCPParams,
+        slave_id: int,
+        operation_log: OperationLog,
+        alias_manager: AliasManager,
+        server_id: str,
+    ) -> "ModbusServerWrapper":
         """Create and start a Modbus TCP server.
 
         The server is created and started inside a dedicated background thread
@@ -284,18 +293,28 @@ class ModbusServerWrapper:
         Args:
             params: TCP server parameters
             slave_id: Slave ID this server responds as
+            operation_log: Shared OperationLog for auditing
+            alias_manager: Shared AliasManager for alias resolution
+            server_id: Unique server identifier for log entries
 
         Returns:
             A running ModbusServerWrapper
         """
         ModbusValidator.validate_slave_id(slave_id)
-        context = cls._build_context(slave_id)
+        context = cls._build_context(slave_id, operation_log, alias_manager, server_id)
         wrapper = cls(context, "TCP", slave_id)
         wrapper._start_tcp(params)
         return wrapper
 
     @classmethod
-    def create_rtu_server(cls, params: ServerRTUParams, slave_id: int) -> "ModbusServerWrapper":
+    def create_rtu_server(
+        cls,
+        params: ServerRTUParams,
+        slave_id: int,
+        operation_log: OperationLog,
+        alias_manager: AliasManager,
+        server_id: str,
+    ) -> "ModbusServerWrapper":
         """Create and start a Modbus RTU server.
 
         The server is created and started inside a dedicated background thread
@@ -305,31 +324,42 @@ class ModbusServerWrapper:
         Args:
             params: RTU server parameters
             slave_id: Slave ID this server responds as
+            operation_log: Shared OperationLog for auditing
+            alias_manager: Shared AliasManager for alias resolution
+            server_id: Unique server identifier for log entries
 
         Returns:
             A running ModbusServerWrapper
         """
         ModbusValidator.validate_slave_id(slave_id)
-        context = cls._build_context(slave_id)
+        context = cls._build_context(slave_id, operation_log, alias_manager, server_id)
         wrapper = cls(context, "RTU", slave_id)
         wrapper._start_rtu(params)
         return wrapper
 
     @staticmethod
-    def _build_context(slave_id: int) -> ModbusServerContext:
-        """Build a ModbusServerContext with empty datastores.
+    def _build_context(
+        slave_id: int,
+        operation_log: OperationLog,
+        alias_manager: AliasManager,
+        server_id: str,
+    ) -> ModbusServerContext:
+        """Build a ModbusServerContext with auditing datastores.
 
         Args:
             slave_id: The slave ID to register
+            operation_log: Shared OperationLog for auditing
+            alias_manager: Shared AliasManager for alias resolution
+            server_id: Unique server identifier for log entries
 
         Returns:
-            ModbusServerContext with initialized data blocks
+            ModbusServerContext with AuditingDataBlock instances
         """
         # Each block: 65536 addresses initialised to 0, starting at address 0
         device_ctx = ModbusDeviceContext(
-            di=ModbusSequentialDataBlock(0, [0] * 65536),
-            co=ModbusSequentialDataBlock(0, [0] * 65536),
-            hr=ModbusSequentialDataBlock(0, [0] * 65536),
-            ir=ModbusSequentialDataBlock(0, [0] * 65536),
+            di=AuditingDataBlock(0, [0] * 65536, operation_log, alias_manager, server_id, RegisterType.discrete_inputs),
+            co=AuditingDataBlock(0, [0] * 65536, operation_log, alias_manager, server_id, RegisterType.coils),
+            hr=AuditingDataBlock(0, [0] * 65536, operation_log, alias_manager, server_id, RegisterType.holding_registers),
+            ir=AuditingDataBlock(0, [0] * 65536, operation_log, alias_manager, server_id, RegisterType.input_registers),
         )
         return ModbusServerContext(devices={slave_id: device_ctx}, single=False)

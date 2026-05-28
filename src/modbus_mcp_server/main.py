@@ -4,6 +4,7 @@ import asyncio
 import logging
 import signal
 import sys
+import threading
 from typing import Any, Dict, List, Optional
 
 from fastmcp import FastMCP
@@ -449,6 +450,62 @@ def _register_server_tools(app: FastMCP, handlers: ModbusServerCommandHandlers) 
         """
         return handlers.handle_server_write_input_registers(server_id, address, values)
 
+    @app.tool()
+    def server_set_alias(server_id: str, register_type: str, address: int, alias: str) -> Dict[str, Any]:
+        """Set or update an alias for a register address.
+
+        Args:
+            server_id: Unique identifier of the server
+            register_type: Register type (coils, discrete_inputs, holding_registers, input_registers)
+            address: Numeric register address
+            alias: Human-readable alias name
+
+        Returns:
+            Dictionary containing success status and message
+        """
+        return handlers.handle_server_set_alias(server_id, register_type, address, alias)
+
+    @app.tool()
+    def server_get_alias(server_id: str, register_type: str, address: int) -> Dict[str, Any]:
+        """Get the alias for a register address.
+
+        Args:
+            server_id: Unique identifier of the server
+            register_type: Register type string
+            address: Numeric register address
+
+        Returns:
+            Dictionary containing success status and alias or None
+        """
+        return handlers.handle_server_get_alias(server_id, register_type, address)
+
+    @app.tool()
+    def server_list_aliases(server_id: Optional[str] = None) -> Dict[str, Any]:
+        """List all aliases, optionally filtered by server.
+
+        Args:
+            server_id: Optional server ID to filter by
+
+        Returns:
+            Dictionary containing success status and list of aliases
+        """
+        return handlers.handle_server_list_aliases(server_id)
+
+    @app.tool()
+    def server_get_register_log(server_id: Optional[str] = None, register_type: Optional[str] = None, address: Optional[int] = None, count: int = 100) -> Dict[str, Any]:
+        """Get operation log entries with optional filters.
+
+        Args:
+            server_id: Optional server ID filter
+            register_type: Optional register type filter
+            address: Optional address filter
+            count: Maximum number of entries to return (default 100)
+
+        Returns:
+            Dictionary containing success status and list of log entries
+        """
+        return handlers.handle_server_get_register_log(server_id, register_type, address, count)
+
 
 def main(config_file: Optional[str] = None, config: Optional[ServerConfig] = None) -> None:
     """Main entry point."""
@@ -478,12 +535,35 @@ def main(config_file: Optional[str] = None, config: Optional[ServerConfig] = Non
         signal.signal(signal.SIGTERM, signal_handler)
         
         try:
-            logging.info(f"Modbus MCP Server starting with transport: {server_config.transport}")
-            if server_config.transport == "stdio":
-                app.run(transport="stdio")
+            if server_config.enable_web_ui:
+                # Dual-thread mode: MCP stdio in background, FastAPI in main thread
+                import uvicorn
+                from .web_ui import create_web_app
+
+                server_manager = app.server_manager
+                operation_log = server_manager.operation_log
+                alias_manager = server_manager.alias_manager
+                web_app = create_web_app(server_manager, operation_log, alias_manager)
+
+                mcp_thread = threading.Thread(
+                    target=lambda: app.run(transport="stdio"),
+                    daemon=True,
+                    name="mcp-stdio",
+                )
+                mcp_thread.start()
+                logging.info("MCP stdio thread started (daemon)")
+
+                logging.info(
+                    f"Web UI starting on http://0.0.0.0:{server_config.web_ui_port}"
+                )
+                uvicorn.run(web_app, host="0.0.0.0", port=server_config.web_ui_port)
             else:
-                # SSE transport
-                app.run(transport="sse")
+                logging.info(f"Modbus MCP Server starting with transport: {server_config.transport}")
+                if server_config.transport == "stdio":
+                    app.run(transport="stdio")
+                else:
+                    # SSE transport
+                    app.run(transport="sse")
         except Exception as e:
             logging.error(f"Server error: {e}")
             if hasattr(app, 'connection_manager'):

@@ -38,6 +38,8 @@ Environment Variables:
   MODBUS_MCP_LOG_FILE          Log file path
   MODBUS_MCP_DEFAULT_TIMEOUT   Default operation timeout in seconds
   MODBUS_MCP_MAX_CLIENTS       Maximum concurrent clients
+  MODBUS_MCP_WEB_UI            Enable web UI interface (true/false)
+  MODBUS_MCP_WEB_UI_PORT       Web UI server port (default: 8090)
   
 For a complete list of environment variables, see the documentation.
         """,
@@ -117,6 +119,20 @@ For a complete list of environment variables, see the documentation.
         help="Maximum number of concurrent clients"
     )
     
+    # Web UI options
+    web_ui_group = parser.add_argument_group("Web UI Options")
+    web_ui_group.add_argument(
+        "--web-ui",
+        action="store_true",
+        help="Enable web UI interface (requires fastapi/uvicorn)"
+    )
+    web_ui_group.add_argument(
+        "--web-ui-port",
+        type=int,
+        default=8090,
+        help="Web UI server port (default: 8090)"
+    )
+    
     # Version and help
     parser.add_argument(
         "--version",
@@ -162,6 +178,12 @@ def apply_cli_overrides(config, args: argparse.Namespace) -> None:
         config.default_timeout = args.default_timeout
     if args.max_clients is not None:
         config.max_clients = args.max_clients
+    
+    # Web UI options
+    if args.web_ui:
+        config.enable_web_ui = True
+    if args.web_ui_port != 8090:
+        config.web_ui_port = args.web_ui_port
 
 
 def show_config(config) -> None:
@@ -211,6 +233,12 @@ def show_config(config) -> None:
     print(f"Enable Health Check:     {config.enable_health_check}")
     if config.enable_health_check:
         print(f"Health Check Port:       {config.health_check_port}")
+    print()
+    
+    # Web UI settings
+    print(f"Enable Web UI:           {config.enable_web_ui}")
+    if config.enable_web_ui:
+        print(f"Web UI Port:             {config.web_ui_port}")
 
 
 def cli_main(argv: Optional[List[str]] = None) -> int:

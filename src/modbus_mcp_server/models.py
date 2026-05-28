@@ -2,6 +2,7 @@
 
 from dataclasses import dataclass
 from datetime import datetime
+from enum import Enum
 from typing import Any, Dict, List, Optional, Union
 
 
@@ -142,3 +143,38 @@ class TCPParams:
         
         if self.timeout <= 0:
             raise ValueError("Timeout must be positive")
+
+
+class RegisterType(str, Enum):
+    """Type of Modbus register."""
+    coils = "coils"
+    discrete_inputs = "discrete_inputs"
+    holding_registers = "holding_registers"
+    input_registers = "input_registers"
+
+
+@dataclass
+class LogEntry:
+    """A log entry for a Modbus operation."""
+    timestamp: str
+    server_id: str
+    register_type: RegisterType
+    address: int
+    operation: str  # "get" or "set"
+    source: str  # "external" or "mcp"
+    count: int
+    alias: Optional[str] = None
+    old_value: Optional[List[int]] = None
+    new_value: Optional[List[int]] = None
+    value: Optional[Any] = None
+    success: bool = True
+    message: Optional[str] = None
+
+
+@dataclass
+class AliasEntry:
+    """An alias mapping for a Modbus register."""
+    server_id: str
+    register_type: RegisterType
+    address: int
+    alias: str

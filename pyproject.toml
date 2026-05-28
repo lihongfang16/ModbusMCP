@@ -38,6 +38,11 @@ dev = [
     "flake8>=6.0.0",
     "mypy>=1.0.0",
 ]
+web-ui = [
+    "fastapi>=0.100.0",
+    "uvicorn>=0.20.0",
+    "websockets>=10.0",
+]
 
 [project.scripts]
 modbus-mcp-server = "modbus_mcp_server.cli:cli_main"

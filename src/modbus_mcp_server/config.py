@@ -47,6 +47,10 @@ class ServerConfig:
     metrics_port: int = 9090
     enable_health_check: bool = True
     health_check_port: int = 8080
+    
+    # Web UI settings
+    enable_web_ui: bool = False
+    web_ui_port: int = 8090
 
 
 class ConfigManager:
@@ -158,6 +162,8 @@ class ConfigManager:
             f"{prefix}METRICS_PORT": ("metrics_port", int),
             f"{prefix}ENABLE_HEALTH_CHECK": ("enable_health_check", lambda x: x.lower() in ('true', '1', 'yes')),
             f"{prefix}HEALTH_CHECK_PORT": ("health_check_port", int),
+            f"{prefix}WEB_UI": ("enable_web_ui", lambda x: x.lower() in ('true', '1', 'yes')),
+            f"{prefix}WEB_UI_PORT": ("web_ui_port", int),
         }
         
         for env_var, config_key in env_mappings.items():

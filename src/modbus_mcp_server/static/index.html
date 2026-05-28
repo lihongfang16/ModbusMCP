@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ModbusMCP Dashboard</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: -apple-system, "Segoe UI", Tahoma, sans-serif;
+      background: #f0f2f5;
+      color: #1a1a2e;
+      padding: 20px;
+    }
+
+    h1 {
+      font-size: 22px;
+      margin-bottom: 16px;
+      color: #16213e;
+    }
+
+    /* ---- toolbar ---- */
+    .toolbar {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+    .toolbar label { font-size: 14px; font-weight: 600; }
+    .toolbar select {
+      padding: 6px 10px;
+      border: 1px solid #bbb;
+      border-radius: 4px;
+      font-size: 14px;
+      min-width: 200px;
+    }
+
+    /* ---- status indicator ---- */
+    #ws-status {
+      margin-left: auto;
+      font-size: 13px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    #ws-status .dot {
+      width: 10px; height: 10px;
+      border-radius: 50%;
+      display: inline-block;
+    }
+    #ws-status .dot.ok  { background: #27ae60; }
+    #ws-status .dot.err { background: #e74c3c; }
+
+    /* ---- tabs ---- */
+    .tabs {
+      display: flex;
+      gap: 0;
+      margin-bottom: 0;
+    }
+    .tab-btn {
+      padding: 8px 18px;
+      border: 1px solid #bbb;
+      border-bottom: none;
+      border-radius: 4px 4px 0 0;
+      background: #e0e0e0;
+      cursor: pointer;
+      font-size: 13px;
+    }
+    .tab-btn.active {
+      background: #fff;
+      font-weight: 600;
+      border-color: #999;
+    }
+
+    /* ---- register table ---- */
+    .table-wrap {
+      border: 1px solid #bbb;
+      border-radius: 0 4px 4px 4px;
+      background: #fff;
+      margin-bottom: 20px;
+      max-height: 320px;
+      overflow-y: auto;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+    thead { position: sticky; top: 0; z-index: 1; }
+    th {
+      background: #f7f8fa;
+      text-align: left;
+      padding: 8px 12px;
+      border-bottom: 2px solid #ccc;
+      font-weight: 600;
+    }
+    td {
+      padding: 6px 12px;
+      border-bottom: 1px solid #eee;
+    }
+    td.mono {
+      font-family: "Cascadia Code", "Consolas", monospace;
+      font-size: 12px;
+    }
+
+    /* ---- log panel ---- */
+    .log-section h2 {
+      font-size: 16px;
+      margin-bottom: 8px;
+    }
+    #log-panel {
+      background: #1a1a2e;
+      color: #a8e6cf;
+      font-family: "Cascadia Code", "Consolas", monospace;
+      font-size: 12px;
+      line-height: 1.5;
+      padding: 10px 14px;
+      border-radius: 4px;
+      max-height: 280px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+    .log-entry { margin-bottom: 2px; }
+    .log-entry .ts   { color: #888; }
+    .log-entry .srv  { color: #74b9ff; }
+    .log-entry .op   { color: #ffeaa7; }
+    .log-entry .addr { color: #dfe6e9; }
+    .log-entry .val  { color: #55efc4; }
+
+    .placeholder {
+      padding: 20px;
+      text-align: center;
+      color: #888;
+      font-size: 13px;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>ModbusMCP Dashboard</h1>
+
+  <div class="toolbar">
+    <label for="server-select">Server:</label>
+    <select id="server-select">
+      <option value="">-- select server --</option>
+    </select>
+
+    <div id="ws-status">
+      <span class="dot err"></span>
+      <span>Disconnected</span>
+    </div>
+  </div>
+
+  <div class="tabs">
+    <button class="tab-btn active" data-type="coils">Coils</button>
+    <button class="tab-btn" data-type="discrete_inputs">Discrete Inputs</button>
+    <button class="tab-btn" data-type="holding_registers">Holding Registers</button>
+    <button class="tab-btn" data-type="input_registers">Input Registers</button>
+  </div>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>Address</th><th>Alias</th><th>Current Value</th></tr>
+      </thead>
+      <tbody id="reg-body">
+        <tr><td colspan="3" class="placeholder">Select a server to view registers</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="log-section">
+    <h2>Operation Log</h2>
+    <div id="log-panel"></div>
+  </div>
+
+<script>
+(function () {
+  // ---- DOM refs ----
+  var serverSelect = document.getElementById('server-select');
+  var regBody      = document.getElementById('reg-body');
+  var logPanel     = document.getElementById('log-panel');
+  var wsStatus     = document.getElementById('ws-status');
+  var tabBtns      = document.querySelectorAll('.tab-btn');
+
+  // ---- state ----
+  var currentType   = 'coils';
+  var aliasMap      = {};   // key: "type:address" → alias string
+  var ws            = null;
+  var reconnectTimer = null;
+
+  // ---- helpers ----
+  function setStatus(connected) {
+    var dot = wsStatus.querySelector('.dot');
+    var txt = wsStatus.querySelector('span:last-child');
+    dot.className = 'dot ' + (connected ? 'ok' : 'err');
+    txt.textContent = connected ? 'Connected' : 'Disconnected';
+  }
+
+  function fetchJSON(url) {
+    return fetch(url).then(function (r) {
+      if (!r.ok) throw new Error(r.status + ' ' + r.statusText);
+      return r.json();
+    });
+  }
+
+  function esc(s) {
+    var d = document.createElement('div');
+    d.textContent = s;
+    return d.innerHTML;
+  }
+
+  // ---- load servers ----
+  function loadServers() {
+    fetchJSON('/api/servers')
+      .then(function (list) {
+        var prev = serverSelect.value;
+        serverSelect.innerHTML = '<option value="">-- select server --</option>';
+        list.forEach(function (s) {
+          var opt = document.createElement('option');
+          opt.value = s.server_id;
+          opt.textContent = s.server_id + ' (' + s.server_type + ', slave ' + s.slave_id + ')';
+          serverSelect.appendChild(opt);
+        });
+        if (prev && list.some(function (s) { return s.server_id === prev; })) {
+          serverSelect.value = prev;
+        }
+        if (serverSelect.value) loadRegisters();
+      })
+      .catch(function (e) { console.error('loadServers:', e); });
+  }
+
+  // ---- load aliases ----
+  function loadAliases(serverId) {
+    aliasMap = {};
+    if (!serverId) return Promise.resolve();
+    return fetchJSON('/api/aliases?server_id=' + encodeURIComponent(serverId))
+      .then(function (list) {
+        list.forEach(function (a) {
+          aliasMap[a.register_type + ':' + a.address] = a.alias;
+        });
+      })
+      .catch(function () { /* aliases are optional */ });
+  }
+
+  // ---- load registers ----
+  function loadRegisters() {
+    var serverId = serverSelect.value;
+    if (!serverId) {
+      regBody.innerHTML = '<tr><td colspan="3" class="placeholder">Select a server to view registers</td></tr>';
+      return;
+    }
+    loadAliases(serverId).then(function () {
+      var url = '/api/registers?server_id=' + encodeURIComponent(serverId)
+              + '&register_type=' + encodeURIComponent(currentType)
+              + '&address=0&count=100';
+      return fetchJSON(url);
+    }).then(function (data) {
+      if (!data || !data.values) {
+        regBody.innerHTML = '<tr><td colspan="3" class="placeholder">No data</td></tr>';
+        return;
+      }
+      var html = '';
+      data.values.forEach(function (val, idx) {
+        var alias = aliasMap[currentType + ':' + idx] || '';
+        html += '<tr>'
+              + '<td>' + idx + '</td>'
+              + '<td>' + esc(alias) + '</td>'
+              + '<td class="mono">' + esc(String(val)) + '</td>'
+              + '</tr>';
+      });
+      regBody.innerHTML = html || '<tr><td colspan="3" class="placeholder">No values</td></tr>';
+    }).catch(function (e) {
+      regBody.innerHTML = '<tr><td colspan="3" class="placeholder">Error: ' + esc(e.message) + '</td></tr>';
+    });
+  }
+
+  // ---- WebSocket ----
+  function connectWS() {
+    if (ws && (ws.readyState === WebSocket.CONNECTING || ws.readyState === WebSocket.OPEN)) return;
+
+    var proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+    var url = proto + '//' + location.host + '/ws/logs';
+    ws = new WebSocket(url);
+
+    ws.onopen = function () {
+      setStatus(true);
+      if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
+    };
+
+    ws.onmessage = function (evt) {
+      try {
+        var entry = JSON.parse(evt.data);
+        appendLog(entry);
+      } catch (e) {
+        // plain text fallback
+        appendLog({ timestamp: new Date().toISOString(), _raw: evt.data });
+      }
+    };
+
+    ws.onclose = function () {
+      setStatus(false);
+      scheduleReconnect();
+    };
+
+    ws.onerror = function () {
+      setStatus(false);
+    };
+  }
+
+  function scheduleReconnect() {
+    if (reconnectTimer) return;
+    reconnectTimer = setTimeout(function () {
+      reconnectTimer = null;
+      connectWS();
+    }, 5000);
+  }
+
+  function appendLog(entry) {
+    var div = document.createElement('div');
+    div.className = 'log-entry';
+
+    if (entry._raw) {
+      div.textContent = entry._raw;
+    } else {
+      var ts   = entry.timestamp ? entry.timestamp.split('.')[0].replace('T', ' ') : '';
+      var srv  = entry.server_id || '';
+      var op   = entry.operation || '';
+      var src  = entry.source || '';
+      var addr = entry.address !== undefined ? entry.address : '';
+      var rt   = entry.register_type || '';
+      var alias = entry.alias || '';
+      var nv   = entry.new_value ? JSON.stringify(entry.new_value) : '';
+      var ov   = entry.old_value ? JSON.stringify(entry.old_value) : '';
+
+      var parts = [
+        '<span class="ts">'  + esc(ts) + '</span>',
+        '<span class="srv">' + esc(srv) + '</span>',
+        esc(rt) + ' @' + addr,
+        alias ? '(' + esc(alias) + ')' : '',
+        '<span class="op">' + esc(op) + '</span>',
+        esc(src),
+      ];
+      if (ov) parts.push('old=<span class="val">' + esc(ov) + '</span>');
+      if (nv) parts.push('new=<span class="val">' + esc(nv) + '</span>');
+
+      div.innerHTML = parts.join(' ');
+    }
+
+    logPanel.appendChild(div);
+    // auto-scroll
+    logPanel.scrollTop = logPanel.scrollHeight;
+  }
+
+  // ---- tab switching ----
+  tabBtns.forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      tabBtns.forEach(function (b) { b.classList.remove('active'); });
+      btn.classList.add('active');
+      currentType = btn.getAttribute('data-type');
+      loadRegisters();
+    });
+  });
+
+  // ---- server change ----
+  serverSelect.addEventListener('change', function () {
+    loadRegisters();
+  });
+
+  // ---- init ----
+  loadServers();
+  connectWS();
+
+  // refresh server list every 10s
+  setInterval(loadServers, 10000);
+})();
+</script>
+</body>
+</html>

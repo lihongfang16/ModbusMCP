@@ -7,6 +7,8 @@ from datetime import datetime
 from typing import Dict, List, Optional, Set
 
 from .models import ServerInfo, ServerTCPParams, ServerRTUParams
+from .alias_manager import AliasManager
+from .operation_log import OperationLog
 from .server_wrapper import ModbusServerWrapper
 from .validation import ModbusValidator
 
@@ -23,6 +25,10 @@ class ServerManager:
         self.used_ports: Set[str] = set()  # Serial ports
         self.used_tcp_ports: Set[int] = set()  # TCP ports
         self._lock = threading.RLock()
+
+        # Shared auditing infrastructure
+        self.operation_log = OperationLog()
+        self.alias_manager = AliasManager()
 
         logger.info("ServerManager initialized")
 
@@ -54,7 +60,9 @@ class ServerManager:
             server_id = self._generate_server_id()
 
             try:
-                wrapper = ModbusServerWrapper.create_tcp_server(tcp_params, slave_id)
+                wrapper = ModbusServerWrapper.create_tcp_server(
+                    tcp_params, slave_id, self.operation_log, self.alias_manager, server_id,
+                )
 
                 self.servers[server_id] = wrapper
                 self.used_tcp_ports.add(port)
@@ -115,7 +123,9 @@ class ServerManager:
             server_id = self._generate_server_id()
 
             try:
-                wrapper = ModbusServerWrapper.create_rtu_server(rtu_params, slave_id)
+                wrapper = ModbusServerWrapper.create_rtu_server(
+                    rtu_params, slave_id, self.operation_log, self.alias_manager, server_id,
+                )
 
                 self.servers[server_id] = wrapper
                 self.used_ports.add(port)
@@ -175,6 +185,9 @@ class ServerManager:
 
                 wrapper.stop()
 
+                # Clear aliases for this server
+                self.alias_manager.clear_aliases(server_id)
+
                 # Release port resources
                 if info.server_type == "RTU":
                     serial_port = info.connection_params.get("port")
@@ -195,6 +208,7 @@ class ServerManager:
                 logger.error(f"Error stopping server {server_id}: {e}")
                 # Still try to clean up
                 try:
+                    self.alias_manager.clear_aliases(server_id)
                     info = self.server_info.get(server_id)
                     if info and info.server_type == "RTU":
                         serial_port = info.connection_params.get("port")
